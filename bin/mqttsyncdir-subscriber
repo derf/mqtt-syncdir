@@ -1,0 +1,103 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.020;
+
+our $VERSION = '0.00';
+
+use File::Path qw(make_path);
+use File::Slurp qw(write_file);
+use Net::MQTT::Simple;
+
+# proof of concept -- a proper config parser will be implemented later
+my $outdir = '/tmp/mqttsyncdir-subscriber';
+my $server = '172.23.225.193';
+
+my %config = (
+	'sensor/+/am_rh' => {
+		freshness   => 600,
+		norm_factor => 0.1,
+	},
+	'sensor/+/am_temp' => {
+		freshness   => 600,
+		norm_factor => 0.1,
+	},
+	'sensor/+/temperature' => {
+		freshness => 600,
+	},
+	'host/+/temperature/+' => {
+		freshness   => 600,
+		norm_factor => 0.001,
+	},
+);
+
+my %subscription;
+
+for my $name ( keys %config ) {
+	$subscription{$name} = sub {
+		my ( $topic, $message ) = @_;
+		my $basedir = "${outdir}/${topic}";
+
+		$basedir =~ s{ / [^/]+ $ }{}x;
+
+		if ( exists $config{$name}{norm_factor} ) {
+			$message *= $config{$name}{norm_factor};
+		}
+
+		if ( not -e $basedir ) {
+			make_path($basedir);
+		}
+
+		write_file( "${outdir}/${topic}", $message );
+	};
+}
+
+my $mqtt = Net::MQTT::Simple->new($server);
+$mqtt->subscribe(%subscription);
+
+while (1) {
+	$mqtt->tick(30);
+
+	# TODO handle freshness
+}
+
+$mqtt->run(%subscription);
+
+__END__
+
+=head1 NAME
+
+=head1 SYNOPSIS
+
+=head1 VERSION
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over
+
+=back
+
+=head1 EXIT STATUS
+
+=head1 CONFIGURATION
+
+None.
+
+=head1 DEPENDENCIES
+
+=over
+
+=back
+
+=head1 BUGS AND LIMITATIONS
+
+=head1 AUTHOR
+
+Copyright (C) 2017 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
+
+=head1 LICENSE
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.
