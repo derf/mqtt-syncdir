@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use 5.020;
+
+our $VERSION = '0.00';
+
+use File::Slurp qw(read_dir read_file);
+use Linux::Inotify2;
+use Net::MQTT::Simple;
+
+# proof of concept -- a proper config parser will be implemented later
+my %config = (
+	directory => '/tmp/mqttsyncdir-publisher',
+	server    => '172.23.225.193',
+);
+
+my $mqtt = Net::MQTT::Simple->new( $config{server} );
+
+my $inotify = Linux::Inotify2->new();
+my $mask    = IN_MODIFY | IN_CREATE | IN_DELETE | IN_DELETE_SELF;
+my $cb;
+
+$cb = sub {
+	my ($event) = @_;
+	my $path = $event->fullname;
+
+	if ( $event->IN_MODIFY and -f $path ) {
+		my $content = read_file($path);
+		chomp $content;
+		$path =~ s{^$config{directory}/}{};
+
+		$mqtt->retain( $path, $content );
+	}
+	elsif ( $event->IN_DELETE ) {
+		$path =~ s{^$config{directory}/}{};
+		$mqtt->retain( $path, undef );
+	}
+	elsif ( $event->IN_CREATE and -d $path ) {
+		$inotify->watch( $path, $mask, $cb );
+	}
+	elsif ( $event->IN_DELETE_SELF ) {
+		$event->w->cancel;
+	}
+
+};
+
+$inotify->watch( $config{directory}, $mask, $cb );
+
+my @queue = grep { -d } read_dir( $config{directory}, prefix => 1 );
+
+while ( my $dir = shift @queue ) {
+	$inotify->watch( $dir, $mask, $cb );
+	push( @queue, grep { -d } read_dir( $dir, prefix => 1 ) );
+}
+
+while (1) {
+	$inotify->poll;
+}
+
+__END__
+
+=head1 NAME
+
+=head1 SYNOPSIS
+
+=head1 VERSION
+
+=head1 DESCRIPTION
+
+=head1 OPTIONS
+
+=over
+
+=back
+
+=head1 EXIT STATUS
+
+=head1 CONFIGURATION
+
+None.
+
+=head1 DEPENDENCIES
+
+=over
+
+=back
+
+=head1 BUGS AND LIMITATIONS
+
+=head1 AUTHOR
+
+Copyright (C) 2017 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
+
+=head1 LICENSE
+
+  0. You just DO WHAT THE FUCK YOU WANT TO.
