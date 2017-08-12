@@ -9,12 +9,29 @@ our $VERSION = '0.00';
 use File::Slurp qw(read_dir read_file);
 use Linux::Inotify2;
 use Net::MQTT::Simple;
+use YAML::XS;
 
-# proof of concept -- a proper config parser will be implemented later
-my %config = (
-	directory => '/tmp/mqttsyncdir-publisher',
-	server    => '172.23.225.193',
-);
+sub load_config {
+	my ($config_file) = @_;
+	my $content       = read_file($config_file);
+	my $yaml          = Load($content);
+	return $yaml;
+}
+
+my ($config_file) = @ARGV;
+
+if ( not defined $config_file ) {
+	die("Usage: $0 <config.yaml>\n");
+}
+
+my %config = %{ load_config($config_file) };
+
+if ( not defined $config{directory} ) {
+	die("Error: configuration must specify an output directory\n");
+}
+if ( not defined $config{server} ) {
+	die("Error: configuration must specify a server\n");
+}
 
 my $mqtt = Net::MQTT::Simple->new( $config{server} );
 
