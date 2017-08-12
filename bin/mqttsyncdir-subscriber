@@ -7,30 +7,43 @@ use 5.020;
 our $VERSION = '0.00';
 
 use File::Path qw(make_path);
-use File::Slurp qw(write_file);
+use File::Slurp qw(read_file write_file);
 use Net::MQTT::Simple;
+use YAML::XS;
 
-# proof of concept -- a proper config parser will be implemented later
-my $outdir = '/tmp/mqttsyncdir-subscriber';
-my $server = '172.23.225.193';
+sub load_config {
+	my ($config_file) = @_;
+	my $content       = read_file($config_file);
+	my $yaml          = Load($content);
+	return $yaml;
+}
 
-my %config = (
-	'sensor/+/am_rh' => {
-		freshness   => 600,
-		norm_factor => 0.1,
-	},
-	'sensor/+/am_temp' => {
-		freshness   => 600,
-		norm_factor => 0.1,
-	},
-	'sensor/+/temperature' => {
-		freshness => 600,
-	},
-	'host/+/temperature/+' => {
-		freshness   => 600,
-		norm_factor => 0.001,
-	},
-);
+my ($config_file) = @ARGV;
+
+if ( not defined $config_file ) {
+	die("Usage: $0 <config.yaml>\n");
+}
+
+my $user_config = load_config($config_file);
+my $outdir      = $user_config->{directory};
+my $server      = $user_config->{server};
+my %config;
+
+for my $subscription ( @{ $user_config->{subscriptions} } ) {
+	$config{ $subscription->{topic} } = {};
+	for my $key (qw(freshness norm_factor)) {
+		if ( exists $subscription->{$key} ) {
+			$config{ $subscription->{topic} }{$key} = $subscription->{$key};
+		}
+	}
+}
+
+if ( not defined $outdir ) {
+	die("Error: configuration must specify an output directory\n");
+}
+if ( not defined $server ) {
+	die("Error: configuration must specify a server\n");
+}
 
 my %subscription;
 
