@@ -1,0 +1,13 @@
+directory: /tmp/mqttsyncdir-subscriber
+server: 127.0.0.1
+subscriptions:
+  - topic: sensor/+/am_rh
+    freshness: 600
+    norm_factor: 0.1
+  - topic: sensor/+/am_temp
+    freshness: 600
+    norm_factor: 0.1
+  - topic: sensor/+/temperature
+  - topic: host/+/temperature/+
+    freshness: 600
+    norm_factor: 0.1
