@@ -51,6 +51,39 @@ for my $name ( keys %config ) {
 
 		write_file( "${outdir}/${topic}", $message );
 	};
+
+	if ( exists $config{$name}{freshness} and $name =~ m{ [*] }x ) {
+		say STDERR
+		  "Warning: $name: freshness checks on subscriptions containing "
+		  . "an asterisk ('*') are not supported.";
+		say STDERR "         I will not check this topic's freshness";
+		delete $config{$name}{freshness};
+	}
+	if ( exists $config{$name}{freshness} and $name =~ m{ [#] }x ) {
+		say STDERR
+		  "Warning: $name: freshness checks on subscriptions containing "
+		  . "multi-level wildcards ('#') are not yet supported.";
+		say STDERR "         I will not check this topic's freshness";
+		delete $config{$name}{freshness};
+	}
+
+}
+
+sub check_freshness {
+	my ( $topic, $now ) = @_;
+
+	my $glob_expr = $topic;
+	$glob_expr =~ s{ [+] }{*}gx;
+
+	for my $file ( glob("${outdir}/${glob_expr}") ) {
+		my $mtime = ( stat($file) )[9];
+
+		if ( -f $file and $now - $mtime > $config{$topic}{freshness} ) {
+			unlink($file)
+			  or say STDERR
+			  "Unable to delete ${file} during freshness check: $!";
+		}
+	}
 }
 
 my $mqtt = Net::MQTT::Simple->new($server);
@@ -59,10 +92,14 @@ $mqtt->subscribe(%subscription);
 while (1) {
 	$mqtt->tick(30);
 
-	# TODO handle freshness
-}
+	my $now = time();
 
-$mqtt->run(%subscription);
+	for my $topic ( keys %config ) {
+		if ( exists $config{$topic}{freshness} ) {
+			check_freshness( $topic, $now );
+		}
+	}
+}
 
 __END__
 
