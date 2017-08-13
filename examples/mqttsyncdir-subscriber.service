@@ -1,0 +1,13 @@
+[Unit]
+Description=MQTT to filesystem daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mqttsyncdir-subscriber /etc/mqtt-syncdir/subscriber.yaml
+User=FIXME
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
