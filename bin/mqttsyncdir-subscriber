@@ -118,27 +118,64 @@ __END__
 
 =head1 NAME
 
+mqttsyncdir-subscriber - map MQTT messages to filesystem entries
+
 =head1 SYNOPSIS
+
+B<mqttsyncdir-subscriber> I<config.yaml>
 
 =head1 VERSION
 
+0.00
+
 =head1 DESCRIPTION
+
+
 
 =head1 OPTIONS
 
-=over
-
-=back
+None yet.
 
 =head1 EXIT STATUS
 
 =head1 CONFIGURATION
 
-None.
+=head2 EXAMPLE CONFIGURATION
+
+=begin text
+
+The following configuration will subscribe to three topics, normalize message
+bodies of one of them and also remove stale data in two cases.
+
+directory: /srv/mqtt
+server: mqtt.example
+subscriptions:
+  - topic: sensor/+/temperature
+    freshness: 600
+  - topic: sensor/+/voltage
+    freshness: 600
+    norm_factor: 0.000001
+  - topic: counter/whatever
+
+=end text
+
+This configuration file will subscribe to the topics C<< sensor/+/temperature >>,
+C<< sensor/+/voltage >>, and C<< counter/whatever >>. Each time a message is
+posted to one of them, the appropriate file in F</srv/mqtt> will be updated.
+
+So, assuming the message C<< 12.5 >> is posted to C<<
+sensor/outdoor/temperature >>, the string C<< 12.5 >> will be written to
+F</srv/mqtt/sensor/outdoor/temperature>. The message C<< 10700000 >> to
+C<< sensor/main_battery/voltage >> will result in C<< 10.7 >> being written
+to F</srv/mqtt/sensor/main_battery/voltage>. Any file belonging to the topics
+C<< sensor/+/temperature >> or C<< sensor/+/voltage >> which did not receive
+an update in the last 10 minutes will be deleted.
 
 =head1 DEPENDENCIES
 
 =over
+
+=item * Net::MQTT::Simple
 
 =back
 
@@ -146,7 +183,7 @@ None.
 
 =head1 AUTHOR
 
-Copyright (C) 2017 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
+Copyright (C) 2017-2018 by Daniel Friesel E<lt>derf@finalrewind.orgE<gt>
 
 =head1 LICENSE
 
